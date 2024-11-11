@@ -6,7 +6,6 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    crate2nix.url = "github:nix-community/crate2nix";
   };
 
   outputs = {
@@ -14,7 +13,6 @@
     nixpkgs,
     flake-utils,
     rust-overlay,
-    crate2nix
   }:
   flake-utils.lib.eachDefaultSystem (system: let
     pkgs = import nixpkgs {
@@ -27,21 +25,26 @@
       packages = [ toolchain ];
     };
     packages.default = let
-      name = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.name;
-      buildRustCrateForPkgs =
-        crate:
-        pkgs.buildRustCrate.override {
-          rustc = toolchain;
-          cargo = toolchain;
-        };
-      generatedCargoNix = crate2nix.tools.${system}.generatedCargoNix {
-        inherit name;
-        src = ./.;
-      };
-      cargoNix = import generatedCargoNix {
-        inherit pkgs buildRustCrateForPkgs;
+      cargoTOML = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+      name = cargoTOML.package.name;
+      version = cargoTOML.package.version;
+      target = (builtins.fromTOML (builtins.readFile ./.cargo/config.toml)).build.target;
+      platform = pkgs.makeRustPlatform {
+        cargo = toolchain;
+        rustc = toolchain;
       };
     in
-      cargoNix.rootCrate.build;
+      platform.buildRustPackage {
+        inherit name version;
+        src = ./.;
+        cargoLock.lockFile = ./Cargo.lock;
+        buildPhase = ''
+          cargo build --release
+        '';
+        installPhase = ''
+          cp target/${target}/release/*.wasm $out
+        '';
+        doCheck = false;
+      };
   });
 }
