@@ -46,5 +46,13 @@
         '';
         doCheck = false;
       };
+    apps.default = {
+      type = "app";
+      program =
+        toString
+          (pkgs.writeShellScript
+            "run"
+            "${pkgs.wasmtime}/bin/wasmtime ${self.packages.${system}.default}");
+    };
   });
 }
