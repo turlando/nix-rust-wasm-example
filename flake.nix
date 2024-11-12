@@ -22,7 +22,11 @@
     toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
   in {
     devShells.default = pkgs.mkShell {
-      packages = [ toolchain ];
+      packages = [
+        toolchain
+        pkgs.binaryen
+        pkgs.wabt
+      ];
     };
     packages.default = let
       cargoTOML = builtins.fromTOML (builtins.readFile ./Cargo.toml);
@@ -42,7 +46,10 @@
           cargo build --release
         '';
         installPhase = ''
-          cp target/${target}/release/*.wasm $out
+          ${pkgs.binaryen}/bin/wasm-opt           \
+            -o $out                               \
+            -Oz                                   \
+            target/${target}/release/${name}.wasm
         '';
         doCheck = false;
       };
